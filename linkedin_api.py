@@ -23,22 +23,8 @@ def getauth(auth_data=auth_data):
                        "client_id": creds['client_id'],
                        "client_secret": creds['client_secret']}
     access_token = requests.post('https://www.linkedin.com/oauth/v2/accessToken', data=access_token_data )
-    writetokenfile(access_token.json())
-    return access_token
-
-def refreshauth(auth_data=auth_data):
-    auth_code = requests.get('https://www.linkedin.com/oauth/v2/authorization', params=auth_data)
-    access_token_data={"grant_type": "authorization_code",
-                       "code": auth_code,
-                       "redirect_uri": creds['redirect_uri'],
-                       "client_id": creds['client_id'],
-                       "client_secret": creds['client_secret']}
-    access_token = requests.post('https://www.linkedin.com/oauth/v2/accessToken', data=access_token_data )
-    if access_token.status_code == 200:
-        return access_token
-    else:
-        return False
-
+    writetokenfile(access_token)
+    return access_token.json()
 
 def readtokefile(tokenfile='linkedin_token.json'):
     try:
@@ -49,9 +35,31 @@ def readtokefile(tokenfile='linkedin_token.json'):
 
 def writetokenfile(access_token, tokenfile='linkedin_token.json'):
     with open('linkedin_token.json', 'w+') as f:
-        f.write(access_token.json())
+        # writes access token in json format
+        f.write(str(json.dumps(access_token.json())))
+
+def testtoken(token):
+    access_token = json.loads(token)['access_token'] 
+    headers= { 'Authorization': 'Bearer ' + access_token }
+    client = requests.get('https://api.linkedin.com/v1/people/~', headers=headers)
+    return client.ok
+
+def getcurrentprofile(token):
+    headers= { 'Authorization': 'Bearer ' + access_token['access_token'], 
+               'x-li-format': 'json'
+             }
+    client = requests.get('https://api.linkedin.com/v1/people/~', headers=headers )
+    if client.ok:
+        return client.json()
 
 file_token = readtokefile()
-if not refreshauth():
+if file_token is None:
     access_token = getauth()
+else:
+    if not testtoken(file_token):
+        access_token = getauth()
+    else:
+        access_token = json.loads(file_token)
+
+getcurrentprofile(access_token)
 
